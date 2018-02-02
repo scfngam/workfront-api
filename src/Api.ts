@@ -24,8 +24,9 @@ import 'isomorphic-fetch'
 import * as objectAssign from 'object-assign'
 import {Readable} from 'stream'
 import {INTERNAL_PREFIX} from 'workfront-api-constants'
+import {ResponseHandler} from './ResponseHandler'
 
-export interface IHttpOptions {
+interface IHttpOptions {
     path?: string
     method?: string
     url: string
@@ -35,15 +36,19 @@ export interface IHttpOptions {
         apiKey?: string
     }
 }
-export interface IApiConfig {
+interface IApiConfig {
     url: string
     version?: string
     alwaysUseGet?: boolean
     apiKey?: string
     headers?: {[key: string]: string}
 }
-export type TFields = string | string[]
+type TFields = string | string[]
 
+/**
+ * @internal
+ * @description context whether the working environment is a browser window or NodeJS
+ */
 const GlobalScope = Function('return this')()
 
 /**
@@ -68,8 +73,8 @@ export class Api {
         DELETE: 'DELETE',
         POST: 'POST'
     }
-    _httpOptions: IHttpOptions
-    serverAcceptsJSON: boolean
+    private _httpOptions: IHttpOptions
+    private serverAcceptsJSON: boolean
 
     constructor(config: IApiConfig) {
         this.serverAcceptsJSON = true
@@ -531,6 +536,12 @@ export class Api {
     }
 }
 
+/**
+ * @internal
+ * @description converts JSON data to query string format
+ * @param {object} params
+ * @return {string}
+ */
 const queryStringify = function(params) {
     return Object.keys(params).reduce(function(a, k) {
         if (Array.isArray(params[k])) {
@@ -542,49 +553,4 @@ const queryStringify = function(params) {
         }
         return a
     }, []).join('&')
-}
-
-export type TSuccessHandler<T = any> = (response: any) => Promise<T>
-export type TFailureHandler = (err: any) => never
-
-export const ResponseHandler: {
-    success: TSuccessHandler<any>,
-    failure: TFailureHandler
-} = {
-    success: (response) => {
-        if (response.ok) {
-            return response.json().then(
-                (data) => {
-                    if (data.error) {
-                        throw {
-                            status: response.status,
-                            message: data.error.message
-                        }
-                    }
-                    return data.data
-                }
-            )
-        }
-        else {
-            return response.json().then(
-                (data) => {
-                    throw {
-                        status: response.status,
-                        message: data.error.message
-                    }
-                },
-                () => {
-                    throw {
-                        status: response.status,
-                        message: response.statusText
-                    }
-                }
-            )
-        }
-    },
-    failure: (err) => {
-        throw {
-            message: err.message || err.statusText
-        }
-    }
 }
